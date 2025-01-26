@@ -6,6 +6,7 @@ info:
 paths:
   "/api/v1/areas":
     post:
+      operationId: createArea
       summary: Creates an area
       tags:
         - Areas
@@ -49,6 +50,7 @@ paths:
                   longitude: -74.006
                   radius: 100
     get:
+      operationId: getAreas
       summary: Retrieves all areas
       tags:
         - Areas
@@ -87,6 +89,7 @@ paths:
                     - radius
   "/api/v1/areas/{id}":
     delete:
+      operationId: deleteArea
       summary: Deletes an area
       tags:
         - Areas
@@ -108,6 +111,7 @@ paths:
           description: area deleted
   "/api/v1/countries/visited_cities":
     get:
+      operationId: getVisitedCities
       summary: Get visited cities by date range
       tags:
         - Countries
@@ -121,7 +125,6 @@ paths:
             type: string
         - name: start_at
           in: query
-          format: date-time
           required: true
           description: Start date in YYYY-MM-DD format
           example: '2023-01-01'
@@ -129,7 +132,6 @@ paths:
             type: string
         - name: end_at
           in: query
-          format: date-time
           required: true
           description: End date in YYYY-MM-DD format
           example: '2023-12-31'
@@ -186,6 +188,7 @@ paths:
                     example: 'Missing required parameters: start_at, end_at'
   "/api/v1/health":
     get:
+      operationId: health
       summary: Retrieves application status
       tags:
         - Health
@@ -194,6 +197,7 @@ paths:
           description: Healthy
   "/api/v1/overland/batches":
     post:
+      operationId: createBatch
       summary: Creates a batch of points
       tags:
         - Batches
@@ -259,9 +263,9 @@ paths:
                       type: string
                     battery_level:
                       type: number
-                required:
-                  - geometry
-                  - properties
+                  required:
+                    - geometry
+                    - properties
             examples:
               '0':
                 summary: Creates a batch of points
@@ -292,6 +296,7 @@ paths:
                         battery_level: 0
   "/api/v1/owntracks/points":
     post:
+      operationId: createPoint
       summary: Creates a point
       tags:
         - Points
@@ -392,6 +397,7 @@ paths:
                   disptst: '2024-02-03 13:00:03'
   "/api/v1/photos":
     get:
+      operationId: getPhotos
       summary: Lists photos
       tags:
         - Photos
@@ -470,6 +476,7 @@ paths:
                     - source
   "/api/v1/photos/{id}/thumbnail":
     get:
+      operationId: getPhotoThumbnail
       summary: Retrieves a photo
       tags:
         - Photos
@@ -540,6 +547,7 @@ paths:
           description: photo not found
   "/api/v1/points/tracked_months":
     get:
+      operationId: getTrackedMonths
       summary: Returns list of tracked years and months
       tags:
         - Points
@@ -590,6 +598,7 @@ paths:
           description: unauthorized
   "/api/v1/points":
     get:
+      operationId: getPoints
       summary: Retrieves all points
       tags:
         - Points
@@ -697,6 +706,7 @@ paths:
                     visit_id:
                       type: string
     post:
+      operationId: createPoints
       summary: Creates a batch of points
       tags:
         - Batches
@@ -779,6 +789,7 @@ paths:
                         device_id: 8D5D4197-245B-4619-A88B-2049100ADE46
   "/api/v1/points/{id}":
     delete:
+      operationId: deletePoint
       summary: Deletes a point
       tags:
         - Points
@@ -800,6 +811,7 @@ paths:
           description: point deleted
   "/api/v1/settings":
     patch:
+      operationId: updateSettings
       summary: Updates user settings
       tags:
         - Settings
@@ -831,13 +843,6 @@ paths:
                   type: number
                 merge_threshold_minutes:
                   type: number
-              optional:
-                - route_opacity
-                - meters_between_routes
-                - minutes_between_routes
-                - fog_of_war_meters
-                - time_threshold_minutes
-                - merge_threshold_minutes
             examples:
               '0':
                 summary: Updates user settings
@@ -850,6 +855,7 @@ paths:
                     time_threshold_minutes: 100
                     merge_threshold_minutes: 100
     get:
+      operationId: getSettings
       summary: Retrieves user settings
       tags:
         - Settings
@@ -892,6 +898,7 @@ paths:
                       - merge_threshold_minutes
   "/api/v1/stats":
     get:
+      operationId: getStats
       summary: Retrieves all stats
       tags:
         - Stats
@@ -975,6 +982,7 @@ paths:
                   - yearlyStats
   "/api/v1/users/me":
     get:
+      operationId: getMe
       summary: Returns the current user
       tags:
         - Users
