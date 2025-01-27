@@ -1,9 +1,11 @@
 use chrono::serde::ts_seconds;
+use chrono::{DateTime, Local, TimeDelta};
+use geojson::Value::Point;
+use geojson::{Feature, Geometry, JsonObject};
 use log::{debug, trace};
 use reqwest::header;
 use serde::Deserialize;
 use std::convert::Into;
-use chrono::{DateTime, Local, TimeDelta};
 
 #[derive(Clone)]
 pub struct TractiveApi {
@@ -18,7 +20,7 @@ pub struct AuthTokenResponse {
     user_id: String,
     client_id: String,
     #[serde(with = "ts_seconds")]
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: DateTime<chrono::Utc>,
     access_token: String,
 }
 
@@ -31,7 +33,8 @@ pub struct Tracker {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Position {
-    pub time: i64,
+    #[serde(with = "ts_seconds")]
+    pub time: DateTime<chrono::Utc>,
     pub latlong: [f64; 2],
     pub alt: f64,
     pub speed: Option<f64>,
@@ -139,15 +142,28 @@ impl TractiveApi {
         }
     }
 
-    pub async fn get_positions(&self, tracker: Tracker, from: DateTime<Local>, to: DateTime<Local>) -> Vec<Position> {
-        debug!("Getting positions for tracker {} from {} to {}", tracker._id, from, to);
+    pub async fn get_positions(
+        &self,
+        tracker: Tracker,
+        from: DateTime<Local>,
+        to: DateTime<Local>,
+    ) -> Vec<Position> {
+        debug!(
+            "Getting positions for tracker {} from {} to {}",
+            tracker._id, from, to
+        );
 
         let url = format!("{}/tracker/{}/positions", TRACTIVE_API_URL, tracker._id);
 
-        let response = self.client.get(url)
+        let response = self
+            .client
+            .get(url)
             .query(&[("time_from", from.timestamp()), ("time_to", to.timestamp())])
             .query(&[("format", "json_segments")])
-            .header("Authorization", format!("Bearer {}", self.auth.as_ref().unwrap().access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.auth.as_ref().unwrap().access_token),
+            )
             .send()
             .await;
 
@@ -168,6 +184,35 @@ impl TractiveApi {
             Err(e) => {
                 panic!("Failed to get positions from Tractive: {}", e);
             }
+        }
+    }
+}
+
+impl Into<Feature> for &Position {
+    fn into(self) -> Feature {
+        let geometry = Geometry {
+            bbox: None,
+            value: Point(vec![self.latlong[1].into(), self.latlong[0].into()]),
+            foreign_members: None,
+        };
+
+        let mut properties = JsonObject::new();
+        properties.insert("timestamp".to_string(), self.time.to_rfc3339().into());
+        properties.insert("altitude".to_string(), self.alt.into());
+        properties.insert("speed".to_string(), self.speed.into());
+        properties.insert("course".to_string(), self.course.into());
+        properties.insert(
+            "horizontal_accuracy".to_string(),
+            self.pos_uncertainty.into(),
+        );
+        properties.insert("sensor_used".to_string(), self.sensor_used.clone().into());
+
+        Feature {
+            bbox: None,
+            geometry: Some(geometry),
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
         }
     }
 }

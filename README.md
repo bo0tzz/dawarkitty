@@ -11,7 +11,3 @@ Env vars:
 - `TRACTIVE_PASSWORD`: Password for the Tractive account
 
 # Development
-
-## Generate API client
-
-`docker run --user="$(id -u):$(id -g)" --rm -v "${PWD}:/local" openapitools/openapi-generator-cli generate -i https://github.com/Freika/dawarich/raw/refs/tags/0.23.5/swagger/v1/swagger.yaml -g rust -o /local/openapi/dawarich/client --skip-validate-spec --package-name dawarich`

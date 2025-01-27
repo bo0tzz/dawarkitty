@@ -1,40 +1,46 @@
-use dawarich::apis::points_api::{ApiV1PointsGetError, api_v1_points_get};
-use dawarich::apis::{Error, configuration};
-use dawarich::models::ApiV1PointsGet200ResponseInner;
-use std::ops::Sub;
+use geojson::Feature;
+use log::debug;
+use reqwest::{header, Client};
+use serde::{Deserialize, Serialize};
 
 pub struct DawarichApi {
-    configuration: configuration::Configuration,
+    host: String,
+    client: Client,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BulkPoints {
+    pub locations: Vec<Feature>,
 }
 
 impl DawarichApi {
-    pub fn connect(host: &str, api_key: &str) -> Self {
-        let mut cfg = configuration::Configuration::new();
-        cfg.base_path = host.to_owned();
-        cfg.api_key = Some(configuration::ApiKey {
-            prefix: None,
-            key: api_key.to_owned(),
-        });
+    pub fn new(host: &str, api_key: &str) -> Self {
+        let mut default_headers = header::HeaderMap::new();
+        default_headers.insert("Authorization", api_key.parse().unwrap());
+        let client = Client::builder()
+            .default_headers(default_headers)
+            .build()
+            .unwrap();
 
-        DawarichApi { configuration: cfg }
+        DawarichApi {
+            host: host.to_owned(),
+            client,
+        }
     }
 
-    pub async fn get_recent_points(
-        &self,
-    ) -> Result<Vec<ApiV1PointsGet200ResponseInner>, Error<ApiV1PointsGetError>> {
-        let yesterday = chrono::Local::now().sub(chrono::Duration::days(1));
-        let start_at = &yesterday.format("%Y-%m-%d").to_string();
-        let points = api_v1_points_get(
-            &self.configuration,
-            &self.configuration.api_key.as_ref().unwrap().key,
-            Some(start_at),
-            None,
-            None,
-            None,
-            None, // Ignore pagination and ordering
-        )
-        .await;
+    pub async fn insert_bulk_points(&self, points: BulkPoints) {
+        let url = format!("{}/api/v1/points", self.host);
+        let res = self.client.post(&url).json(&points).send().await.unwrap();
+        assert!(res.status().is_success());
+        debug!("{:?}", res.text().await.unwrap());
+    }
 
-        points
+}
+
+impl From<Vec<Feature>> for BulkPoints {
+    fn from(locations: Vec<Feature>) -> Self {
+        BulkPoints {
+            locations
+        }
     }
 }
