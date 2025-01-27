@@ -1,10 +1,11 @@
 use chrono::serde::ts_seconds;
-use clokwerk::TimeUnits;
 use log::{debug, trace};
 use reqwest::header;
 use serde::Deserialize;
 use std::convert::Into;
+use chrono::{DateTime, Local, TimeDelta};
 
+#[derive(Clone)]
 pub struct TractiveApi {
     email: String,
     password: String,
@@ -12,7 +13,7 @@ pub struct TractiveApi {
     client: reqwest::Client,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct AuthTokenResponse {
     user_id: String,
     client_id: String,
@@ -21,11 +22,29 @@ pub struct AuthTokenResponse {
     access_token: String,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct Tracker {
+    _id: String,
+    _type: String,
+    _version: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Position {
+    pub time: i64,
+    pub latlong: [f64; 2],
+    pub alt: f64,
+    pub speed: Option<f64>,
+    pub course: Option<f64>,
+    pub pos_uncertainty: f64,
+    pub sensor_used: String,
+}
+
 const TRACTIVE_API_URL: &str = "https://graph.tractive.com/4";
 const TRACTIVE_CLIENT_ID: &str = "5728aa1fc9077f7c32000186";
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0";
 
-const AUTH_RENEW_THRESHOLD: i64 = 1.day().into();
+const AUTH_RENEW_THRESHOLD: TimeDelta = TimeDelta::hours(24);
 
 impl TractiveApi {
     pub async fn connect(email: &str, password: &str) -> Self {
@@ -45,8 +64,6 @@ impl TractiveApi {
             client,
         };
 
-        state.check_auth().await;
-
         state
     }
 
@@ -58,7 +75,7 @@ impl TractiveApi {
                 let expiry = auth.expires_at;
                 let diff = expiry - now;
                 trace!("Token expires in: {}", diff);
-                if diff.num_seconds() < AUTH_RENEW_THRESHOLD {
+                if diff < AUTH_RENEW_THRESHOLD {
                     log::info!("Auth token close to expiry, re-authenticating");
                     self.authenticate().await;
                 }
@@ -92,6 +109,37 @@ impl TractiveApi {
             }
             Err(e) => {
                 panic!("Failed to authenticate with Tractive: {}", e);
+            }
+        }
+    }
+
+    pub(crate) async fn get_positions(&self, tracker: &String, from: DateTime<Local>, to: DateTime<Local>) -> Vec<Position> {
+        debug!("Getting positions for tracker {} from {} to {}", tracker, from, to);
+
+        let url = format!("{}/tracker/{}/positions", TRACTIVE_API_URL, tracker);
+
+        let response = self.client.get(url)
+            .query(&[("time_from", from.timestamp()), ("time_to", to.timestamp())])
+            .query(&[("format", "json_segments")])
+            .header("Authorization", format!("Bearer {}", self.auth.as_ref().unwrap().access_token))
+            .send()
+            .await;
+
+        trace!("Got response: {:?}", response);
+
+        match response {
+            Ok(body) => {
+                let positions = body.json::<Vec<Vec<Position>>>().await.unwrap();
+                trace!("Got positions: {:?}", positions);
+
+                if positions.len() != 1 {
+                    panic!("Expected 1 segment, got {}", positions.len());
+                }
+
+                positions[0].clone()
+            }
+            Err(e) => {
+                panic!("Failed to get positions from Tractive: {}", e);
             }
         }
     }

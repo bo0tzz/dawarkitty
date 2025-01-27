@@ -1,6 +1,9 @@
-use clokwerk::{AsyncScheduler, TimeUnits};
-use log::log;
+#![feature(duration_constructors)]
+
 use crate::api::tractive::TractiveApi;
+use crate::env::EnvConfig;
+use log::log;
+use tokio::time::{Duration, sleep};
 
 mod api;
 mod env;
@@ -12,25 +15,28 @@ async fn main() {
     let env = env::load_env();
     log::trace!("Loaded environment variables: {:?}", env);
 
-    let tractive = TractiveApi::connect(&env.tractive_email, &env.tractive_password).await;
-    let expiry = tractive.auth.unwrap().expires_at;
-    log::debug!("Tractive initialized, token expires at: {}", expiry);
+    let mut tractive = TractiveApi::connect(&env.tractive_email, &env.tractive_password).await;
 
     // Init dawarich
 
-    let mut scheduler = AsyncScheduler::new();
-    scheduler.every(1.hour()).run(|| async { sync().await });
-
     loop {
-        scheduler.run_pending().await;
-        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        sync(&env, &mut tractive).await;
+        sleep(Duration::from_hours(1)).await;
     }
 }
 
-
-
-async fn sync() {
+async fn sync(env: &EnvConfig, tractive: &mut TractiveApi) {
     log::info!("Syncing data");
+
+    tractive.check_auth().await;
+
+    for t in env.tractive_tracker_ids.iter() {
+        let to = chrono::Local::now();
+        let from = to - chrono::Duration::days(1) + chrono::Duration::minutes(1); // A little wiggle room to not make the API's checks upset
+
+        tractive.get_positions(t, from, to).await;
+
+    }
 
     // Get tractive objects
     // Get dawarich objects
