@@ -2,7 +2,7 @@
 
 use crate::api::tractive::TractiveApi;
 use crate::env::EnvConfig;
-use log::log;
+use log::{info, log};
 use tokio::time::{Duration, sleep};
 
 mod api;
@@ -19,20 +19,24 @@ async fn main() {
 
     // Init dawarich
 
-    loop {
-        sync(&env, &mut tractive).await;
-        sleep(Duration::from_hours(1)).await;
-    }
+    // loop {
+        sync(&mut tractive).await;
+    //     sleep(Duration::from_hours(1)).await;
+    // }
 }
 
-async fn sync(env: &EnvConfig, tractive: &mut TractiveApi) {
-    log::info!("Syncing data");
+async fn sync(tractive: &mut TractiveApi) {
+    info!("Running hourly sync");
 
     tractive.check_auth().await;
 
-    for t in env.tractive_tracker_ids.iter() {
+    let trackers = tractive.get_trackers().await;
+
+    info!("Syncing {} trackers", trackers.len());
+
+    for t in trackers {
         let to = chrono::Local::now();
-        let from = to - chrono::Duration::days(1) + chrono::Duration::minutes(1); // A little wiggle room to not make the API's checks upset
+        let from = to - chrono::Duration::days(1) - chrono::Duration::minutes(1); // A little wiggle room to not make the API's checks upset
 
         tractive.get_positions(t, from, to).await;
 

@@ -9,7 +9,6 @@ Env vars:
 - `DAWARICH_API_KEY`: API key for the Dawarich instance
 - `TRACTIVE_EMAIL`: Email for the Tractive account
 - `TRACTIVE_PASSWORD`: Password for the Tractive account
-- `TRACTIVE_TRACKER_IDS`: Comma-separated list of tracker IDs to synchronize
 
 # Development
 

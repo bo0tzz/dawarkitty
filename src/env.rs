@@ -7,7 +7,6 @@ pub struct EnvConfig {
     pub dawarich_api_key: String,
     pub tractive_email: String,
     pub tractive_password: String,
-    pub tractive_tracker_ids: Vec<String>,
 }
 
 pub fn load_env() -> EnvConfig {
@@ -24,7 +23,6 @@ impl Debug for EnvConfig {
             .field("dawarich_api_key", &"***********")
             .field("tractive_email", &self.tractive_email)
             .field("tractive_password", &"***********")
-            .field("tractive_tracker_ids", &self.tractive_tracker_ids)
             .finish()
     }
 }

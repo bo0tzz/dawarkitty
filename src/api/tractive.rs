@@ -113,14 +113,10 @@ impl TractiveApi {
         }
     }
 
-    pub(crate) async fn get_positions(&self, tracker: &String, from: DateTime<Local>, to: DateTime<Local>) -> Vec<Position> {
-        debug!("Getting positions for tracker {} from {} to {}", tracker, from, to);
-
-        let url = format!("{}/tracker/{}/positions", TRACTIVE_API_URL, tracker);
+    pub async fn get_trackers(&self) -> Vec<Tracker> {
+        let url = format!("{}/user/me/trackers", TRACTIVE_API_URL);
 
         let response = self.client.get(url)
-            .query(&[("time_from", from.timestamp()), ("time_to", to.timestamp())])
-            .query(&[("format", "json_segments")])
             .header("Authorization", format!("Bearer {}", self.auth.as_ref().unwrap().access_token))
             .send()
             .await;
@@ -129,7 +125,38 @@ impl TractiveApi {
 
         match response {
             Ok(body) => {
-                let positions = body.json::<Vec<Vec<Position>>>().await.unwrap();
+                let body_text = body.text().await.unwrap();
+                trace!("Got response: {:?}", body_text);
+
+                let trackers: Vec<Tracker> = serde_json::from_str(&body_text).unwrap();
+                trace!("Got trackers: {:?}", trackers);
+
+                trackers
+            }
+            Err(e) => {
+                panic!("Failed to get trackers from Tractive: {}", e);
+            }
+        }
+    }
+
+    pub async fn get_positions(&self, tracker: Tracker, from: DateTime<Local>, to: DateTime<Local>) -> Vec<Position> {
+        debug!("Getting positions for tracker {} from {} to {}", tracker._id, from, to);
+
+        let url = format!("{}/tracker/{}/positions", TRACTIVE_API_URL, tracker._id);
+
+        let response = self.client.get(url)
+            .query(&[("time_from", from.timestamp()), ("time_to", to.timestamp())])
+            .query(&[("format", "json_segments")])
+            .header("Authorization", format!("Bearer {}", self.auth.as_ref().unwrap().access_token))
+            .send()
+            .await;
+
+        match response {
+            Ok(body) => {
+                let body_text = body.text().await.unwrap();
+                trace!("Got response: {:?}", body_text);
+
+                let positions: Vec<Vec<Position>> = serde_json::from_str(&body_text).unwrap();
                 trace!("Got positions: {:?}", positions);
 
                 if positions.len() != 1 {
