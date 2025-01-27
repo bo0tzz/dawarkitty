@@ -1,10 +1,8 @@
-#![feature(duration_constructors)]
-
-use geojson::Feature;
-use crate::api::tractive::TractiveApi;
-use log::{info};
-use tokio::time::{Duration, sleep};
 use crate::api::dawarich::{BulkPoints, DawarichApi};
+use crate::api::tractive::TractiveApi;
+use geojson::Feature;
+use log::info;
+use tokio::time::{sleep, Duration};
 
 mod api;
 mod env;
@@ -19,10 +17,9 @@ async fn main() {
     let mut tractive = TractiveApi::connect(&env.tractive_email, &env.tractive_password).await;
     let dawarich = DawarichApi::new(&env.dawarich_host, &env.dawarich_api_key);
 
-
     loop {
         sync(&mut tractive, &dawarich).await;
-        sleep(Duration::from_hours(1)).await;
+        sleep(Duration::from_secs(60 * 60)).await;
     }
 }
 
