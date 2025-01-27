@@ -2,8 +2,7 @@
 
 use geojson::Feature;
 use crate::api::tractive::TractiveApi;
-use crate::env::EnvConfig;
-use log::{debug, info, log};
+use log::{info};
 use tokio::time::{Duration, sleep};
 use crate::api::dawarich::{BulkPoints, DawarichApi};
 
@@ -21,16 +20,14 @@ async fn main() {
     let dawarich = DawarichApi::new(&env.dawarich_host, &env.dawarich_api_key);
 
 
-    // loop {
-        sync(&mut tractive, dawarich).await;
-    //     sleep(Duration::from_hours(1)).await;
-    // }
+    loop {
+        sync(&mut tractive, &dawarich).await;
+        sleep(Duration::from_hours(1)).await;
+    }
 }
 
-async fn sync(tractive: &mut TractiveApi, dawarich: DawarichApi) {
+async fn sync(tractive: &mut TractiveApi, dawarich: &DawarichApi) {
     info!("Running hourly sync");
-
-    tractive.check_auth().await;
 
     let trackers = tractive.get_trackers().await;
 

@@ -4,6 +4,7 @@ use geojson::Value::Point;
 use geojson::{Feature, Geometry, JsonObject};
 use log::{debug, trace};
 use reqwest::header;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::convert::Into;
 
@@ -51,16 +52,12 @@ const AUTH_RENEW_THRESHOLD: TimeDelta = TimeDelta::hours(24);
 
 impl TractiveApi {
     pub async fn connect(email: &str, password: &str) -> Self {
-        let mut default_headers = header::HeaderMap::new();
-        default_headers.insert("X-Tractive-Client", TRACTIVE_CLIENT_ID.parse().unwrap());
-
         let client = reqwest::Client::builder()
             .user_agent(USER_AGENT)
-            .default_headers(default_headers)
             .build()
             .unwrap();
 
-        let mut state = TractiveApi {
+        let state = TractiveApi {
             email: email.to_string(),
             password: password.to_string(),
             auth: None,
@@ -70,14 +67,35 @@ impl TractiveApi {
         state
     }
 
+    async fn auth_headers(&mut self) -> HeaderMap {
+        self.check_auth().await;
+        let a = self.auth.as_ref().unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", a.access_token)).unwrap(),
+        );
+        headers.insert(
+            "X-Tractive-Client",
+            HeaderValue::from_str(&a.client_id).unwrap(),
+        );
+        headers.insert(
+            "X-Tractive-User",
+            HeaderValue::from_str(&a.user_id).unwrap(),
+        );
+
+        headers
+    }
+
     pub async fn check_auth(&mut self) {
         match self.auth.as_ref() {
             Some(auth) => {
-                debug!("Checking auth token expiry");
+                trace!("Checking auth token expiry");
                 let now = chrono::Utc::now();
                 let expiry = auth.expires_at;
                 let diff = expiry - now;
-                trace!("Token expires in: {}", diff);
+                trace!("Token expires in: {} hours", diff.num_hours());
                 if diff < AUTH_RENEW_THRESHOLD {
                     log::info!("Auth token close to expiry, re-authenticating");
                     self.authenticate().await;
@@ -99,11 +117,18 @@ impl TractiveApi {
             "grant_type": "tractive"
         });
 
-        let response = self.client.post(url).json(body).send().await;
+        let response = self
+            .client
+            .post(url)
+            .header("X-Tractive-Client", TRACTIVE_CLIENT_ID)
+            .json(body)
+            .send()
+            .await;
 
         match response {
             Ok(body) => {
-                let auth = body.json::<AuthTokenResponse>().await.unwrap();
+                let body_text = body.text().await.unwrap();
+                let auth: AuthTokenResponse = serde_json::from_str(&body_text).unwrap();
                 debug!(
                     "Authenticated with Tractive, token expires at: {}",
                     auth.expires_at
@@ -116,13 +141,13 @@ impl TractiveApi {
         }
     }
 
-    pub async fn get_trackers(&self) -> Vec<Tracker> {
-        let url = format!("{}/user/me/trackers", TRACTIVE_API_URL);
+    pub async fn get_trackers(&mut self) -> Vec<Tracker> {
+        debug!("Getting trackers");
 
-        let response = self.client.get(url)
-            .header("Authorization", format!("Bearer {}", self.auth.as_ref().unwrap().access_token))
-            .send()
-            .await;
+        let url = format!("{}/user/me/trackers", TRACTIVE_API_URL);
+        let auth = self.auth_headers().await;
+
+        let response = self.client.get(url).headers(auth).send().await;
 
         trace!("Got response: {:?}", response);
 
@@ -143,7 +168,7 @@ impl TractiveApi {
     }
 
     pub async fn get_positions(
-        &self,
+        &mut self,
         tracker: Tracker,
         from: DateTime<Local>,
         to: DateTime<Local>,
@@ -154,16 +179,14 @@ impl TractiveApi {
         );
 
         let url = format!("{}/tracker/{}/positions", TRACTIVE_API_URL, tracker._id);
+        let auth = self.auth_headers().await;
 
         let response = self
             .client
             .get(url)
             .query(&[("time_from", from.timestamp()), ("time_to", to.timestamp())])
             .query(&[("format", "json_segments")])
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.auth.as_ref().unwrap().access_token),
-            )
+            .headers(auth)
             .send()
             .await;
 
@@ -196,6 +219,7 @@ impl Into<Feature> for &Position {
             foreign_members: None,
         };
 
+        //TODO: Derive Deserialize on the Position struct?
         let mut properties = JsonObject::new();
         properties.insert("timestamp".to_string(), self.time.to_rfc3339().into());
         properties.insert("altitude".to_string(), self.alt.into());
