@@ -40,7 +40,7 @@ async fn sync(tractive: &mut TractiveApi, dawarich: &DawarichApi) {
             .iter()
             .map(Into::into)
             .map(|mut f: Feature| {
-                f.set_property("device_id", t._id);
+                f.set_property("device_id", t._id.clone());
                 f
             })
             .collect();
