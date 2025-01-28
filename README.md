@@ -1,6 +1,6 @@
 # dawarkitty
 
-This is a synchronization tool to store historical data from the Tractive API in a Dawarich instance.
+This is a synchronization tool to store historical data from the Tractive API in a [Dawarich](https://github.com/Freika/dawarich/) instance.
 
 # Running
 
