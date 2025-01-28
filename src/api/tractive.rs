@@ -2,11 +2,12 @@ use chrono::serde::ts_seconds;
 use chrono::{DateTime, Local, TimeDelta};
 use geojson::Value::Point;
 use geojson::{Feature, Geometry, JsonObject};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use reqwest::header;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::convert::Into;
+use std::error::Error;
 
 #[derive(Clone)]
 pub struct TractiveApi {
@@ -52,10 +53,19 @@ const AUTH_RENEW_THRESHOLD: TimeDelta = TimeDelta::hours(24);
 
 impl TractiveApi {
     pub async fn connect(email: &str, password: &str) -> Self {
-        let client = reqwest::Client::builder()
+        debug!("Connecting to Tractive API");
+
+        let cb = reqwest::Client::builder()
             .user_agent(USER_AGENT)
-            .build()
-            .unwrap();
+            .build();
+
+        let client = match cb {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to create tractive client: {}", e);
+                panic!("Source: {}", e.source().unwrap());
+            },
+        };
 
         let state = TractiveApi {
             email: email.to_string(),
@@ -128,6 +138,7 @@ impl TractiveApi {
         match response {
             Ok(body) => {
                 let body_text = body.text().await.unwrap();
+
                 let auth: AuthTokenResponse = serde_json::from_str(&body_text).unwrap();
                 debug!(
                     "Authenticated with Tractive, token expires at: {}",
@@ -136,7 +147,8 @@ impl TractiveApi {
                 self.auth = Some(auth);
             }
             Err(e) => {
-                panic!("Failed to authenticate with Tractive: {}", e);
+                error!("Failed to authenticate with Tractive: {}", e);
+                panic!("Source: {}", e.source().unwrap());
             }
         }
     }
