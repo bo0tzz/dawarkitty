@@ -34,9 +34,16 @@ async fn sync(tractive: &mut TractiveApi, dawarich: &DawarichApi) {
         let to = chrono::Local::now();
         let from = to - chrono::Duration::days(1) - chrono::Duration::minutes(1); // A little wiggle room to not make the API's checks upset
 
-        let positions = tractive.get_positions(t, from, to).await;
+        let positions = tractive.get_positions(t.clone(), from, to).await;
 
-        let vec: Vec<Feature> = positions.iter().map(Into::into).collect();
+        let vec: Vec<Feature> = positions
+            .iter()
+            .map(Into::into)
+            .map(|mut f: Feature| {
+                f.set_property("device_id", t._id);
+                f
+            })
+            .collect();
         let bulk_points: BulkPoints = vec.into();
         dawarich.insert_bulk_points(bulk_points).await;
     }

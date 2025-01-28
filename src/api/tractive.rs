@@ -28,9 +28,9 @@ pub struct AuthTokenResponse {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Tracker {
-    _id: String,
-    _type: String,
-    _version: String,
+    pub _id: String,
+    pub _type: String,
+    pub _version: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
