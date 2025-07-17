@@ -207,14 +207,10 @@ impl TractiveApi {
                 let body_text = body.text().await.unwrap();
                 trace!("Got response: {:?}", body_text);
 
-                let positions: Vec<Vec<Position>> = serde_json::from_str(&body_text).unwrap();
+                let positions: Vec<Position> = serde_json::from_str::<Vec<Vec<Position>>>(&body_text).unwrap().into_iter().flatten().collect();
                 trace!("Got positions: {:?}", positions);
 
-                if positions.len() != 1 {
-                    panic!("Expected 1 segment, got {}", positions.len());
-                }
-
-                positions[0].clone()
+                positions
             }
             Err(e) => {
                 panic!("Failed to get positions from Tractive: {}", e);
