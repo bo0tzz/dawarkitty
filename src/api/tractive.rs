@@ -45,6 +45,20 @@ pub struct Position {
     pub sensor_used: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct DeviceHwReport {
+    pub time: i64,
+    pub battery_level: u8,
+    pub temperature_state: Option<String>,
+    pub clip_mounted_state: Option<String>,
+    pub _id: String,
+    pub _type: String,
+    pub _version: String,
+    pub report_id: String,
+    pub power_saving_zone_id: Option<String>,
+    pub hw_status: Option<String>,
+}
+
 const TRACTIVE_API_URL: &str = "https://graph.tractive.com/4";
 const TRACTIVE_CLIENT_ID: &str = "5728aa1fc9077f7c32000186";
 const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0";
@@ -214,6 +228,42 @@ impl TractiveApi {
             }
             Err(e) => {
                 panic!("Failed to get positions from Tractive: {}", e);
+            }
+        }
+    }
+
+    pub async fn get_device_hw_report(&mut self, device_id: &str) -> Result<DeviceHwReport, String> {
+        debug!("Getting device hardware report for device {}", device_id);
+
+        let url = format!("{}/device_hw_report/{}", TRACTIVE_API_URL, device_id);
+        let auth = self.auth_headers().await;
+
+        let response = self
+            .client
+            .get(url)
+            .headers(auth)
+            .send()
+            .await;
+
+        match response {
+            Ok(body) => {
+                let body_text = body.text().await.unwrap();
+                trace!("Got hardware report response: {:?}", body_text);
+
+                match serde_json::from_str::<DeviceHwReport>(&body_text) {
+                    Ok(report) => {
+                        debug!("Got hardware report for device {}", device_id);
+                        Ok(report)
+                    }
+                    Err(e) => {
+                        error!("Failed to parse hardware report: {}", e);
+                        Err(format!("Failed to parse hardware report: {}", e))
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to get hardware report from Tractive: {}", e);
+                Err(format!("Failed to get hardware report from Tractive: {}", e))
             }
         }
     }

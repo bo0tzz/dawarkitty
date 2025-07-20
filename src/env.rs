@@ -7,6 +7,12 @@ pub struct EnvConfig {
     pub dawarich_api_key: String,
     pub tractive_email: String,
     pub tractive_password: String,
+    #[serde(default = "default_prometheus_port")]
+    pub prometheus_port: u16,
+}
+
+fn default_prometheus_port() -> u16 {
+    9090
 }
 
 pub fn load_env() -> EnvConfig {
@@ -23,6 +29,7 @@ impl Debug for EnvConfig {
             .field("dawarich_api_key", &"***********")
             .field("tractive_email", &self.tractive_email)
             .field("tractive_password", &"***********")
+            .field("prometheus_port", &self.prometheus_port)
             .finish()
     }
 }

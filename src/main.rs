@@ -1,11 +1,13 @@
 use crate::api::dawarich::{BulkPoints, DawarichApi};
 use crate::api::tractive::TractiveApi;
+use crate::metrics::start_metrics_server;
 use geojson::Feature;
 use log::info;
 use tokio::time::{sleep, Duration};
 
 mod api;
 mod env;
+mod metrics;
 
 #[tokio::main]
 async fn main() {
@@ -17,6 +19,14 @@ async fn main() {
     let mut tractive = TractiveApi::connect(&env.tractive_email, &env.tractive_password).await;
     let dawarich = DawarichApi::new(&env.dawarich_host, &env.dawarich_api_key);
 
+    // Start metrics server in background
+    let tractive_for_metrics = tractive.clone();
+    let prometheus_port = env.prometheus_port;
+    tokio::spawn(async move {
+        start_metrics_server(prometheus_port, tractive_for_metrics).await;
+    });
+
+    // Run the main sync loop
     loop {
         sync(&mut tractive, &dawarich).await;
         sleep(Duration::from_secs(60 * 60)).await;
